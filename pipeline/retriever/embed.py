@@ -5,6 +5,7 @@ from pipeline.dataset.news import get_news_dataset
 import torch
 from typing import List
 from tqdm import tqdm
+import time
 
 def load_encoding_model(model_name : str):
     """
@@ -80,17 +81,17 @@ def organize_chunks_for_upsert(dataset, encoding_model : SentenceTransformer, ch
         
         for chunk_idx, chunk_text in enumerate(chunk_texts):
             point = {
-                "id": f"{doc_idx}-{chunk_idx}",
+                "id": doc_idx*1000+chunk_idx,
                 "vector": embeddings[chunk_idx],
                 "payload": {
                     'category': dataset[doc_idx]['category'],
                     'press' : dataset[doc_idx]['press'],
-                    'title' :dataset[doc_idx]['title'],
-                    'document' : dataset[doc_idx]['document'],
+                    #'title' :dataset[doc_idx]['title'],
+                    #'document' : dataset[doc_idx]['document'],
                     'link' : dataset[doc_idx]['link'],
-                    'summary' : dataset[doc_idx]['summary'],
+                    #'summary' : dataset[doc_idx]['summary'],
                     'bucket' : dataset[doc_idx]['bucket'],
-                    'text' : dataset[doc_idx]['text'],
+                    #'text' : dataset[doc_idx]['text'],
                     'chunked_text' : chunk_text,
                     'original_docid' : doc_idx
                 }
@@ -127,10 +128,17 @@ def create_new_collection(qdrant_service : QdrantService, collection_name : str,
 
     for i in range(0, len(dataset), 100):
         points = organize_chunks_for_upsert(dataset, embed_model, chunk_size=chunk_size, chunk_overlap=chunk_overlap, batch_size=16, index_from=i, index_to=min(i+100, len(dataset)))
-        qdrant_service.upsert_points(
-            collection_name=collection_name,
-            points=points
-        )
+        while(1):
+            try:
+                qdrant_service.upsert_points(
+                    collection_name=collection_name,
+                    points=points
+                )
+                break
+            except Exception as e:
+                print("Error during upsert, retrying in 10 seconds...", e)
+                time.sleep(10)
+                continue
         print(f"Upserted points for documents {i} to {min(i+100, len(dataset))}")
     
     print("All points upserted successfully, collection name:", collection_name)

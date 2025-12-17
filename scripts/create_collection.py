@@ -1,5 +1,8 @@
 # argparse를 통해 컬렉션 생성 및 데이터 업서트 수행
 import argparse
+import sys
+sys.path.append("/workspace/final_project/")
+
 from pipeline.retriever.embed import create_new_collection
 from pipeline.qdrant.client import QdrantService
 from pipeline.retriever.embed import load_encoding_model
