@@ -1,135 +1,136 @@
-import json
-from tqdm import tqdm
-from pathlib import Path
-from typing import List
-import os
-
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+from sentence_transformers import SentenceTransformer
+from pipeline.qdrant.client import QdrantService
+from pipeline.dataset.news import get_news_dataset
 import torch
-import numpy as np
-from transformers import AutoTokenizer, AutoModel
-import torch.nn.functional as F
-from langchain.text_splitter import RecursiveCharacterTextSplitter
+from typing import List
+from tqdm import tqdm
 
-def build_passage(entry : dict) -> str:
+def load_encoding_model(model_name : str):
     """
-    From wikipedia entry, build a passage: concats title, section and text if available
+    Load the encoding model.
+    Args:
+        model_name (str): The name of the model to load.
+    Returns:
+        model (SentenceTransformer): The loaded encoding model.
     """
-    title = entry.get("title", "")
-    section = entry.get("section", "")
-    text = entry.get("text", "")
-    return f"{title} {section}".strip() + " " + text.strip()
+    model = SentenceTransformer(model_name)
+    print(f"Model is on device: {model.device}")
+    return model
 
-def chunk_sentence(sentence, chunk_size=500, chunk_overlap=0) -> List[str]:
+def chunk_korean_sentence(sentence, chunk_size=500, chunk_overlap=0) -> List[str]:
     """
     Splits a sentence into smaller chunks
     """
-    text_splitter = RecursiveCharacterTextSplitter(chunk_size=chunk_size, chunk_overlap=chunk_overlap)
+    text_splitter = RecursiveCharacterTextSplitter(
+        chunk_size=chunk_size,
+        chunk_overlap=chunk_overlap,
+        separators=[
+            "\n\n",
+            "\n",
+            "다. ",
+            "요. ",
+            ". ",
+            "!",
+            "?",
+        ],
+        length_function=len,
+        keep_separator="end"
+    )
     chunks = text_splitter.split_text(sentence)
     return chunks
 
-def load_wiki_data(file_path):
+def simple_encode(texts : List[str], model : SentenceTransformer, batch_size : int = 32):
     """
-    Loads the wiki data and returns the text.
+    Encode a list of texts using the provided embedding model in batches.
     Args:
-        file_path (str): Path to the JSONL file of atals wiki corpus
-    """
-    try:
-        with open(file_path, 'r') as file:
-            content = [json.loads(line) for line in file]
-        return content
-    except FileNotFoundError:
-        print(f"File not found: {file_path}")
-        return []
-
-def load_embed_model(model_name: str, cache_dir: str = None):
-    """
-    Load the embedding model and tokenizer.
-    Args:
-        model_name (str): The name of the model to load.
-        cache_dir (str): Directory to cache the model.
+        texts (List[str]): List of texts to encode.
+        model (SentenceTransformer): The embedding model.
+        batch_size (int): The batch size for encoding.
     Returns:
-        model (AutoModel): The loaded embedding model.
-        tokenizer (AutoTokenizer): The loaded tokenizer.
+        embeddings (List[List[float]]): List of embeddings.
     """
-    model = AutoModel.from_pretrained(model_name, cache_dir=cache_dir)
-    tokenizer = AutoTokenizer.from_pretrained(model_name, cache_dir=cache_dir)
-    return model, tokenizer
+    embeddings = []
+    for i in range(0, len(texts), batch_size):
+        batch_texts = texts[i:i+batch_size]
+        batch_embeddings = model.encode(batch_texts)
+        embeddings.extend(batch_embeddings.tolist())
+    return embeddings
 
-def create_chunked_wiki_data(file_path, save_path, chunk_size=500, chunk_overlap=0):
+def organize_chunks_for_upsert(dataset, encoding_model : SentenceTransformer, chunk_size : int, chunk_overlap : int = 0, batch_size : int = 32, index_from : int = 0, index_to : int = -1) -> List[dict]:
     """
-    Loads the wiki data, chunks it and saves it to a file.
+    Organize chunks for upsert into Qdrant.
     Args:
-        file_path (str): Path to the JSONL file of atals wiki corpus
-        save_path (str): Path to save the chunked data
-        chunk_size (int): Size of each chunk
-        chunk_overlap (int): Overlap between chunks
-    
-    usage:
-        file_path = "/data/shyoon/rag_data/wiki/enwiki-dec2018/text-list-100-sec.jsonl"
-        create_chunked_wiki_data(file_path, save_path="/data/shyoon/rag_data/wiki/enwiki-dec2018", chunk_size=500, chunk_overlap=0)
+        chunks (List[dict]): List of chunk dictionaries with 'id' and 'text'.
+        encoding_model (SentenceTransformer): The encoding model.
+        batch_size (int): The batch size for encoding.
+    Returns:
+        points (List[dict]): List of points ready for upsert.
     """
-    path = Path(save_path)
-    if not path.exists():
-        path.mkdir(parents=True, exist_ok=True)
-        print(f"Creating directory: {path}")
-    output_file = path / f"wiki_chunked_{chunk_size}_{chunk_overlap}.jsonl"
-
-    if output_file.exists(): # if the file already exists, skip processing
-        print(f"File already exists: {output_file}")
-        return
-
-    content = load_wiki_data(file_path)
-    if not content:
-        print("No content to process.")
-        return
+    points = []
     
-    all_chunks = []
-    # Process the content
-    for entry in tqdm(content):
-        passage = build_passage(entry)
-        chunks = chunk_sentence(passage)
+    for doc_idx, _ in enumerate(dataset['text']):
+        if index_to != -1 and doc_idx >= index_to:
+            break
+        if doc_idx < index_from:
+            continue
+        
+        chunk_texts = chunk_korean_sentence(dataset[doc_idx]['text'], chunk_size=chunk_size, chunk_overlap=chunk_overlap)
+        embeddings = simple_encode(chunk_texts, encoding_model, batch_size=batch_size)
+        
+        for chunk_idx, chunk_text in enumerate(chunk_texts):
+            point = {
+                "id": f"{doc_idx}-{chunk_idx}",
+                "vector": embeddings[chunk_idx],
+                "payload": {
+                    'category': dataset[doc_idx]['category'],
+                    'press' : dataset[doc_idx]['press'],
+                    'title' :dataset[doc_idx]['title'],
+                    'document' : dataset[doc_idx]['document'],
+                    'link' : dataset[doc_idx]['link'],
+                    'summary' : dataset[doc_idx]['summary'],
+                    'bucket' : dataset[doc_idx]['bucket'],
+                    'text' : dataset[doc_idx]['text'],
+                    'chunked_text' : chunk_text,
+                    'original_docid' : doc_idx
+                }
+            }
+            points.append(point)
+    return points
 
-        entry_chunks = []
-        for chunk_id, chunk in enumerate(chunks):
-            chunk_data = {}
-            chunk_data['id'] = str(entry['id'])+'-'+str(chunk_id)
-            chunk_data['text'] = chunk
-            entry_chunks.append(chunk_data)
-        all_chunks.extend(entry_chunks)
+def create_new_collection(qdrant_service : QdrantService, collection_name : str, embed_model : SentenceTransformer, chunk_size=500, chunk_overlap=0):
+    """
+    Create new collection in qdrant for korean news dataset
+    Args:
+        qdrant_service (QdrantService): The Qdrant service instance.
+        chunk_size (int): The size of each chunk.
+        chunk_overlap (int): The overlap between chunks.
+    Returns:
+        None
+    """
+    # check if collection exists, if not, create it with appropriate vector size
+    if qdrant_service.collection_exists(collection_name) == False:
+        print(f"Creating new collection: {collection_name}")
+        created = qdrant_service.ensure_collection(
+            collection_name=collection_name,
+            vector_size=embed_model.get_sentence_embedding_dimension())
+        if created:
+            print(f"Collection {collection_name} created.")
+        else:
+            raise ValueError(f"Failed to create collection: {collection_name}")
+    else:
+        print(f"Collection {collection_name} already exists.")
+        return 0
+
+    # organize data for upsert, in batches
+    dataset = get_news_dataset()
+
+    for i in range(0, len(dataset), 100):
+        points = organize_chunks_for_upsert(dataset, embed_model, chunk_size=chunk_size, chunk_overlap=chunk_overlap, batch_size=16, index_from=i, index_to=min(i+100, len(dataset)))
+        qdrant_service.upsert_points(
+            collection_name=collection_name,
+            points=points
+        )
+        print(f"Upserted points for documents {i} to {min(i+100, len(dataset))}")
     
-    data_dict = {item['id']: {'text':item['text']} for item in all_chunks}
-    print(f"Saving {len(data_dict)} chunks to {output_file}")
-    with open(output_file, "w") as f:
-        for key, value in data_dict.items():
-            json.dump({key: value}, f)
-            f.write("\n")
-
-    print(f"Saved all chunks to {output_file}")
-
-def mean_pooling(token_embeddings, mask):
-    """
-    mean pooling for contriever embeddings
-    """
-    token_embeddings = token_embeddings.masked_fill(~mask[..., None].bool(), 0.0)
-    sentence_embeddings = token_embeddings.sum(dim=1) / mask.sum(dim=1)[..., None].clamp(min=1e-9)
-    return sentence_embeddings
-
-def simple_embed(texts : List[str], model : AutoModel, tokenizer : AutoTokenizer, device, batch_size : int = 32):
-    all_embeddings = np.zeros((len(texts), model.config.hidden_size), dtype=np.float32)
-    with torch.no_grad():
-        for i in range(0, len(texts), batch_size):
-            batch_sentences = texts[i:i+batch_size]
-            
-            inputs = tokenizer(batch_sentences, padding=True, truncation=True, return_tensors='pt', max_length=512)
-            inputs = {k: v.to(device) for k, v in inputs.items()}
-            
-            outputs = model(**inputs)
-            embeddings = mean_pooling(outputs.last_hidden_state, inputs['attention_mask'])
-            embeddings = F.normalize(embeddings, p=2, dim=1)
-
-            cpu_embeddings = embeddings.cpu().numpy()
-
-            assert len(batch_sentences) == cpu_embeddings.shape[0]
-
-            all_embeddings[i:i+len(batch_sentences)] = cpu_embeddings
-    return all_embeddings
+    print("All points upserted successfully, collection name:", collection_name)
