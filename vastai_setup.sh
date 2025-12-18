@@ -17,3 +17,4 @@ pip install qdrant-client
 pip install langchain-text-splitters
 pip install nvitop
 pip install openai
+pip install vllm

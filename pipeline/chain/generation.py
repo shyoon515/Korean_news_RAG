@@ -5,8 +5,9 @@ from typing import List, Union
 
 from pipeline.retriever.embed import load_encoding_model
 from pipeline.qdrant.client import QdrantService
-from pipeline.generator.llm import OpenAIGenerator
+from pipeline.generator.llm import OpenAIGenerator, VLLMGenerator
 from pipeline.generator.prompter import PromptGenerator
+from pipeline.common import VLLMServerManager
 
 class RAGChain:
     """
@@ -14,10 +15,12 @@ class RAGChain:
     """
     def __init__(
         self,
-        encoder_name : str = "bge-m3-ko",
+        encoder_name : str = "bge",
         top_k : int = 5,
         collection_name : str = "bge_500_150",
-        generator_name : str = "gpt-4o-mini",
+        generator_name : str = "exaone",
+        generator_type : str = "vllm",
+        vllm_api_base : str = "http://localhost:8000/v1",
         with_retrieval_results : bool = True,
         logger = None,
     ):
@@ -25,12 +28,14 @@ class RAGChain:
         self.top_k = top_k
         self.collection_name = collection_name
         self.generator_name = generator_name
+        self.generator_type = generator_type
+        self.vllm_api_base = vllm_api_base
         self.with_retrieval_results = with_retrieval_results
         self.logger = logger
 
         self.encoder = self._load_encoding_model(encoder_name)
         self.qdrant_service = self._load_qdrant_service(self.logger)
-        self.generator = self._load_generator(self.generator_name, self.logger)
+        self.generator = self._load_generator(self.generator_name, self.generator_type, self.logger)
     
     def ask(
         self,
@@ -55,6 +60,24 @@ class RAGChain:
             all_retrieved_docs.append(retrieved_docs)
         if self.logger:
             self.logger.info(f"[RAGChain] (ask) Document retrieval completed.")
+        
+        # # start vllm server if using vllm generator
+        # if self.generator_type == "vllm":
+        #     if self.generator_name == "exaone":
+        #         self.gen_model_name = "LGAI-EXAONE/EXAONE-4.0-1.2B"
+        #     elif self.generator_name == "midm":
+        #         self.gen_model_name = "K-intelligence/Midm-2.0-Mini-Instruct"
+        #     elif self.generator_name == "hyperclovax":
+        #         self.gen_model_name = "naver-hyperclovax/HyperCLOVAX-SEED-Text-Instruct-1.5B"
+        #     else:
+        #         raise ValueError(f"Unsupported model_name: {self.generator_name}. Supported models are: exaone, midm, hyperclovax.")
+        #     vllm_manager = VLLMServerManager(
+        #         model=self.gen_model_name,
+        #         host="localhost",
+        #         port=8000,
+        #         logger=self.logger
+        #     )
+        #     vllm_manager.start()
 
         # generate answers using retrieved documents
         if self.logger:
@@ -67,6 +90,10 @@ class RAGChain:
             final_answers.append(generation_response[0])
         if self.logger:
             self.logger.info(f"[RAGChain] (ask) Answer generation completed.")
+        
+        # # stop vllm server if using vllm generator
+        # if self.generator_type == "vllm":
+        #     vllm_manager.stop()
         
         if self.with_retrieval_results:
             return list(zip(final_answers, all_retrieved_docs))
@@ -84,12 +111,12 @@ class RAGChain:
         """
         if self.logger:
             self.logger.info(f"[RAGChain init] Loading embedding model: {model_name}")
-        if model_name == "bge-m3-ko":
+        if model_name == "bge":
             _encoder = "dragonkue/bge-m3-ko"
-        elif model_name == "kr-sbert":
+        elif model_name == "sbert":
             _encoder = "snunlp/KR-SBERT-V40K-klueNLI-augSTS"
         else:
-            raise ValueError(f"Unsupported encoder name: {model_name}. It should be one of ['bge-m3-ko', 'kr-sbert']")
+            raise ValueError(f"Unsupported encoder name: {model_name}. It should be one of ['bge', 'sbert']")
         embed_model = load_encoding_model(_encoder)
         if self.logger:
             self.logger.info(f"[RAGChain init] Embedding model loaded.")
@@ -110,17 +137,26 @@ class RAGChain:
             raise ValueError(f"Collection {self.collection_name} does not exist in Qdrant.")
         return qdrant_service
     
-    def _load_generator(self, model_name : str, logger):
+    def _load_generator(self, model_name : str, generator_type: str, logger):
         """
         Load the text generation model.
         Args:
             model_name (str): The name of the model to load.
+            generator_type (str): Type of generator ('openai' or 'vllm')
+            logger: Optional logger instance
         Returns:
-            generator (OpenAIGenerator): The loaded text generation model.
+            generator: The loaded text generation model (OpenAIGenerator or VLLMGenerator)
         """
         if logger:
-            logger.info(f"[RAGChain init] Loading generator model: {model_name}")
-        generator = OpenAIGenerator(model_name, logger=logger)
+            logger.info(f"[RAGChain init] Loading generator model: {model_name} (type: {generator_type})")
+        
+        if generator_type == "openai":
+            generator = OpenAIGenerator(model_name, logger=logger)
+        elif generator_type == "vllm":
+            generator = VLLMGenerator(model_name, api_base=self.vllm_api_base, logger=logger)
+        else:
+            raise ValueError(f"Unsupported generator type: {generator_type}. It should be one of ['openai', 'vllm']")
+        
         if logger:
             logger.info(f"[RAGChain init] Generator model loaded.")
         return generator

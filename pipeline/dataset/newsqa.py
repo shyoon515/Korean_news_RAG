@@ -18,7 +18,7 @@ def load_news_qa_dataset(json_path = None) -> Dataset:
     parsed_newsqa = []
 
     for item in newsqa:
-        qa = json.loads(item["qa_pair"])   # 🔥 핵심
+        qa = json.loads(item["qa_pair"])
         parsed_newsqa.append({
             "qid": item["qid"],
             "docid": item["docid"],
