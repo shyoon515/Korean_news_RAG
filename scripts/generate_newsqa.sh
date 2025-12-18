@@ -1,0 +1,1 @@
+python C:/Users/james/OneDrive/바탕 화면/대학교/수업/2025-2/산업텍스트애널리틱스/기말텀프/final_project/qa/qa_generation.py --model-name "gpt-5-mini"
