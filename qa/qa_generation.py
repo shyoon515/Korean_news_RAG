@@ -1,7 +1,8 @@
 # argparse를 통해 openai generation 모델 지정 후 qa set을 generation하여 폴더에 저장
 import argparse
 import sys
-path = "C:/Users/james/OneDrive/바탕 화면/대학교/수업/2025-2/산업텍스트애널리틱스/기말텀프/final_project"
+from pathlib import Path
+path = str(Path(__file__).resolve().parent.parent)
 sys.path.append(path)
 
 from pipeline.common import setup_logger

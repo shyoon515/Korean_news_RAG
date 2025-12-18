@@ -8,7 +8,7 @@ from keys import QDRANT_API_KEY, QDRANT_URL
 class QdrantService:
     """Thin wrapper around QdrantClient with convenience methods."""
 
-    def __init__(self, url: Optional[str] = None, api_key: Optional[str] = None, **kwargs):
+    def __init__(self, url: Optional[str] = None, api_key: Optional[str] = None, logger=None, **kwargs):
         resolved_url = url or QDRANT_URL
         resolved_api_key = api_key or QDRANT_API_KEY
         if not resolved_url:
@@ -16,11 +16,21 @@ class QdrantService:
         if not resolved_api_key:
             raise ValueError("Qdrant API key is required")
         self.client = QdrantClient(url=resolved_url, api_key=resolved_api_key, **kwargs)
-        print(f"Connected to Qdrant at {resolved_url}")
+        if logger:
+            self.logger = logger
+            self.logger.info(f"[QdrantService] Connected to Qdrant at {resolved_url}")
 
     def collection_exists(self, collection_name: str) -> bool:
         collections = self.client.get_collections().collections
         return any(c.name == collection_name for c in collections)
+    
+    def get_collections(self) -> Sequence[models.CollectionInfo]:
+        """Get list of existing collections."""
+        return self.client.get_collections().collections
+
+    def get_collection_names(self) -> Sequence[str]:
+        """Get list of existing collection names."""
+        return [c.name for c in self.get_collections()]
 
     def ensure_collection(
         self,
@@ -64,5 +74,36 @@ class QdrantService:
                 normalized.append(models.PointStruct(**point))
             else:
                 raise TypeError("points must be PointStruct or mapping with id/vector")
-
+        if self.logger:
+            self.logger.info(f"Upserting {len(normalized)} points into collection {collection_name}")
         return self.client.upsert(collection_name=collection_name, points=normalized, **kwargs)
+    
+    def search(
+        self,
+        collection_name: str,
+        query_vector: Sequence[float],
+        limit: int = 5,
+    ) -> Sequence[models.ScoredPoint]:
+        """Search for nearest neighbors in a collection."""
+
+        nearest = self.client.query_points(
+            collection_name=collection_name,
+            query=query_vector,
+            with_payload=True,
+            limit=limit
+        ).points
+
+        parsed_point_results = []
+        for point in nearest:
+            point_dict = {
+                "id": point.id,
+                "score": point.score,
+                "original_chunk_id": point.id % 1000
+            }
+            for key, value in point.payload.items():
+                point_dict[key] = value
+            parsed_point_results.append(point_dict)
+
+        if self.logger:
+            self.logger.info(f"[QdrantService] Search in collection {collection_name} returned {len(parsed_point_results)} results.")
+        return parsed_point_results

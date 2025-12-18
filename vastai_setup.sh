@@ -16,3 +16,4 @@ pip install sentence-transformers
 pip install qdrant-client
 pip install langchain-text-splitters
 pip install nvitop
+pip install openai

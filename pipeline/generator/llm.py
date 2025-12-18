@@ -12,6 +12,8 @@ class OpenAIGenerator:
     
     def generate(self, prompts: list[str]) -> list[str]:
         """Generate responses for a list of prompts using OpenAI API."""
+        if isinstance(prompts, str):
+            prompts = [prompts]
         responses = []
         for i, prompt in enumerate(prompts):
             response = self.client.responses.create(
@@ -21,5 +23,5 @@ class OpenAIGenerator:
             responses.append(response.output_text)
 
             if self.logger:
-                self.logger.info(f"[{i+1}/{len(prompts)}] generation done\n- Prompt:\n{prompt}\n- Response:\n{response.output_text}")
+                self.logger.info(f"[OpenAIGenerator] ({i+1}/{len(prompts)}) generation done\n- Prompt:\n{prompt}\n- Response:\n{response.output_text}")
         return responses

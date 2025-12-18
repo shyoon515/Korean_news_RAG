@@ -2,7 +2,7 @@ from datasets import load_dataset, Dataset
 
 def get_news_dataset() -> Dataset:
     """
-    Loads news dataset from datasets library given a file path.
+    Loads news dataset.
     """
     dataset = load_dataset("daekeun-ml/naver-news-summarization-ko")
 

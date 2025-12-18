@@ -43,3 +43,31 @@ class PromptGenerator:
                 """
                 prompts.append(PROMPT)
         return prompts
+
+    def generate_answer_with_docs(
+            docs: List[str], 
+            question: str
+        ) -> List[str]:
+        """
+        Generate prompts for answering a question based on provided documents.
+        Args:
+            docs (List[str]): Document(s) to base the answer on.
+            question (str): The question to be answered.
+        Returns:
+            List[str]: List of generated prompts.
+        """
+
+        prompts = []
+        
+        PROMPT = f"""
+        다음 기사들의 내용에만 근거해서, 아래 질문에 대한 답변을 해줘.
+        답변은 간결하게 해주고, 출력 형식은 json으로 다음과 같아야 해.
+        {{"answer": "답변 내용"}}
+        반드시 기사 내용에만 근거해서 답변을 만들어야 해.
+        """
+        for i, doc in enumerate(docs):
+            PROMPT += f"\n기사 {i+1} 내용: {doc}\n"
+        PROMPT += f"\n질문: {question}\n답변: "
+
+        prompts.append(PROMPT)
+        return prompts
