@@ -12,12 +12,12 @@ from pipeline.dataset.newsqa import load_news_qa_dataset
 
 def main():
     parser = argparse.ArgumentParser(description="Generate QA pairs from NewsQA dataset.")
-    parser.add_argument("--encoder", type=str, default="bge", help="Encoder model name. Should be a sentence-transformers model. Supported inputs: 'bge', 'sbert'")
+    parser.add_argument("--encoder", type=str, default="bge", help="Encoder model name. Should be a sentence-transformers model. Supported inputs: 'bge', 'sbert', 'e5'.")
     parser.add_argument("--generator-type", type=str, default="vllm", help="Generator type. Supported inputs: 'vllm', 'openai'.")
-    parser.add_argument("--generator", type=str, default="exaone", help="Generator model name. Supported inputs for vllm: 'exaone', 'midm', 'hyperclovax'. For openai, use model names like 'gpt-4o-mini'.")
+    parser.add_argument("--generator", type=str, default="midm", help="Generator model name. Supported inputs for vllm: 'exaone', 'midm', 'hyperclovax'. For openai, use model names like 'gpt-4o-mini'.")
     parser.add_argument("--top-k", type=int, default=5, help="Number of top documents to retrieve.")
-    parser.add_argument("--chunk-size", type=int, default=500, help="Chunk size for splitting context.")
-    parser.add_argument("--overlap-size", type=int, default=150, help="Overlap size between chunks.")
+    parser.add_argument("--chunk-size", type=int, default=1000, help="Chunk size for splitting context.")
+    parser.add_argument("--overlap-size", type=int, default=200, help="Overlap size between chunks.")
     parser.add_argument("--output-path", type=str, default=str(Path(__file__).resolve().parent.parent / "outputs"), help="Folder path to save the generated QA pairs.")
     parser.add_argument("--logger", type=bool, default=True, help="Logger usage flag.")
     parser

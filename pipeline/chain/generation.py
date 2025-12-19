@@ -7,7 +7,6 @@ from pipeline.retriever.embed import load_encoding_model
 from pipeline.qdrant.client import QdrantService
 from pipeline.generator.llm import OpenAIGenerator, VLLMGenerator
 from pipeline.generator.prompter import PromptGenerator
-from pipeline.common import VLLMServerManager
 
 class RAGChain:
     """
@@ -15,10 +14,10 @@ class RAGChain:
     """
     def __init__(
         self,
-        encoder_name : str = "bge",
+        encoder_name : str = 'bge', # 'bge', 'sbert', 'e5'
+        collection_name : str = 'bge_1000_200',
+        generator_name : str = 'midm', # exaone, midm, hyperclovax
         top_k : int = 5,
-        collection_name : str = "bge_500_150",
-        generator_name : str = "exaone",
         generator_type : str = "vllm",
         vllm_api_base : str = "http://localhost:8000/v1",
         with_retrieval_results : bool = True,
@@ -51,49 +50,30 @@ class RAGChain:
 
         # for each question, retrieve top_k documents
         all_retrieved_docs = []
-        for q_emb in question_embeddings:
+        for i, q_emb in enumerate(question_embeddings):
             retrieved_docs = self.qdrant_service.search(
                 collection_name=self.collection_name,
                 query_vector=q_emb,
                 limit=self.top_k
             )
             all_retrieved_docs.append(retrieved_docs)
+            if self.logger:
+                self.logger.info(f"[RAGChain] (ask) Question ({i+1}/{len(question)}): Retrieved {len(retrieved_docs)} documents.")
         if self.logger:
             self.logger.info(f"[RAGChain] (ask) Document retrieval completed.")
-        
-        # # start vllm server if using vllm generator
-        # if self.generator_type == "vllm":
-        #     if self.generator_name == "exaone":
-        #         self.gen_model_name = "LGAI-EXAONE/EXAONE-4.0-1.2B"
-        #     elif self.generator_name == "midm":
-        #         self.gen_model_name = "K-intelligence/Midm-2.0-Mini-Instruct"
-        #     elif self.generator_name == "hyperclovax":
-        #         self.gen_model_name = "naver-hyperclovax/HyperCLOVAX-SEED-Text-Instruct-1.5B"
-        #     else:
-        #         raise ValueError(f"Unsupported model_name: {self.generator_name}. Supported models are: exaone, midm, hyperclovax.")
-        #     vllm_manager = VLLMServerManager(
-        #         model=self.gen_model_name,
-        #         host="localhost",
-        #         port=8000,
-        #         logger=self.logger
-        #     )
-        #     vllm_manager.start()
 
         # generate answers using retrieved documents
         if self.logger:
             self.logger.info(f"[RAGChain] (ask) Generating answers using retrieved documents with generator: {self.generator_name}")
         final_answers = []
+        prompts = []
         for q_idx, docs in enumerate(all_retrieved_docs):
             doc_texts = [doc['chunked_text'] for doc in docs]
-            prompts = PromptGenerator.generate_answer_with_docs(docs=doc_texts, question=question[q_idx])
-            generation_response = self.generator.generate(prompts)
-            final_answers.append(generation_response[0])
+            prompt = PromptGenerator.generate_answer_with_docs(docs=doc_texts, question=question[q_idx])
+            prompts.append(prompt[0])
+        final_answers = self.generator.generate(prompts)
         if self.logger:
             self.logger.info(f"[RAGChain] (ask) Answer generation completed.")
-        
-        # # stop vllm server if using vllm generator
-        # if self.generator_type == "vllm":
-        #     vllm_manager.stop()
         
         if self.with_retrieval_results:
             return list(zip(final_answers, all_retrieved_docs))
@@ -115,8 +95,10 @@ class RAGChain:
             _encoder = "dragonkue/bge-m3-ko"
         elif model_name == "sbert":
             _encoder = "snunlp/KR-SBERT-V40K-klueNLI-augSTS"
+        elif model_name == "e5":
+            _encoder = "intfloat/multilingual-e5-large-instruct"
         else:
-            raise ValueError(f"Unsupported encoder name: {model_name}. It should be one of ['bge', 'sbert']")
+            raise ValueError(f"Unsupported encoder name: {model_name}. It should be one of ['bge', 'sbert', 'e5']")
         embed_model = load_encoding_model(_encoder)
         if self.logger:
             self.logger.info(f"[RAGChain init] Embedding model loaded.")

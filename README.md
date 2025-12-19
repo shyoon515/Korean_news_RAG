@@ -17,4 +17,7 @@ vllm serve K-intelligence/Midm-2.0-Mini-Instruct --port 8000 --gpu-memory-utiliz
 vllm serve naver-hyperclovax/HyperCLOVAX-SEED-Text-Instruct-1.5B --port 8000 --gpu-memory-utilization 0.8
 ```
 
-
+## Qwen2.5-7B
+```bash
+vllm serve Qwen/Qwen2.5-7B-Instruct --port 8000 --gpu-memory-utilization 0.9 --max-model-len 8192
+```

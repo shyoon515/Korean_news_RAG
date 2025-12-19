@@ -4,8 +4,11 @@ from pathlib import Path
 sys.path.append(str(Path(__file__).resolve().parent.parent))
 from pipeline.eval.evaluator import LLMGenerationEvaluator
 import json
+from pipeline.common import setup_logger
 
-llm_generation_evaluator = LLMGenerationEvaluator(model_name="gpt-5-nano")
+logger = setup_logger(name="eval_generation")
+
+llm_generation_evaluator = LLMGenerationEvaluator(model_name="qwen", logger=logger)
 
 folder_path = "/workspace/final_project/outputs/geneval"
 all_file_names = []

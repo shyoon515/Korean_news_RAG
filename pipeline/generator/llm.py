@@ -58,8 +58,10 @@ class VLLMGenerator:
             self.model_name = "K-intelligence/Midm-2.0-Mini-Instruct"
         elif model_name == "hyperclovax":
             self.model_name = "naver-hyperclovax/HyperCLOVAX-SEED-Text-Instruct-1.5B"
+        elif model_name == "qwen":
+            self.model_name = "Qwen/Qwen2.5-7B-Instruct"
         else:
-            raise ValueError(f"Unsupported model_name: {model_name}. Supported models are: exaone, midm, hyperclovax.")
+            raise ValueError(f"Unsupported model_name: {model_name}. Supported models are: exaone, midm, hyperclovax, qwen.")
         self.logger = logger
 
         if self.logger:
@@ -84,12 +86,14 @@ class VLLMGenerator:
             try:
                 response = self.client.chat.completions.create(
                     model=self.model_name,
-                    messages=[{"role": "user", "content": prompt}],
+                    messages=[{
+                        "role": "user",
+                        "content": [{"type": "text", "text": prompt}],
+                    }],
                     max_tokens=max_tokens,
                     temperature=temperature,
                     top_p=top_p,
                 )
-
                 generated_text = (
                     response.choices[0].message.content or ""
                 ).strip()

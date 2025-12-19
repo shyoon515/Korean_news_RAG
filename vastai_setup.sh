@@ -18,3 +18,5 @@ pip install langchain-text-splitters
 pip install nvitop
 pip install openai
 pip install vllm
+pip install rank-bm25
+pip install kiwipiepy

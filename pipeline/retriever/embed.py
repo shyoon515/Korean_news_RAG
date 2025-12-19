@@ -126,8 +126,8 @@ def create_new_collection(qdrant_service : QdrantService, collection_name : str,
     # organize data for upsert, in batches
     dataset = get_news_dataset()
 
-    for i in range(0, len(dataset), 100):
-        points = organize_chunks_for_upsert(dataset, embed_model, chunk_size=chunk_size, chunk_overlap=chunk_overlap, batch_size=16, index_from=i, index_to=min(i+100, len(dataset)))
+    for i in range(0, len(dataset), 128):
+        points = organize_chunks_for_upsert(dataset, embed_model, chunk_size=chunk_size, chunk_overlap=chunk_overlap, batch_size=16, index_from=i, index_to=min(i+128, len(dataset)))
         while(1):
             try:
                 qdrant_service.upsert_points(
@@ -139,6 +139,6 @@ def create_new_collection(qdrant_service : QdrantService, collection_name : str,
                 print("Error during upsert, retrying in 10 seconds...", e)
                 time.sleep(10)
                 continue
-        print(f"Upserted points for documents {i} to {min(i+100, len(dataset))}")
+        print(f"Upserted points for documents {i} to {min(i+128, len(dataset))}")
     
     print("All points upserted successfully, collection name:", collection_name)

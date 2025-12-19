@@ -3,7 +3,7 @@ from typing import List, Tuple, Dict
 from .utils import answer_extractor, load_jsonl
 from .metric import evaluate_at_k, evaluate_rels_at_k
 
-from pipeline.generator.llm import OpenAIGenerator
+from pipeline.generator.llm import OpenAIGenerator, VLLMGenerator
 from pipeline.generator.prompter import PromptGenerator
 from pipeline.dataset.newsqa import load_news_qa_dataset
 
@@ -43,9 +43,14 @@ class AtkEvaluator:
         return retrieval_result
 
 class LLMRelevanceEvaluator:
-    def __init__(self, ks:set = {5}, model_name: str = "gpt-4o-mini"):
+    def __init__(self, ks:set = {5}, model_name: str = "qwen", logger = None):
         self.ks = ks
-        self.generator = OpenAIGenerator(model_name=model_name)
+        self.logger = logger
+        if model_name.startswith("gpt"):
+            self.generator = OpenAIGenerator(model_name=model_name, logger=logger)
+        else:
+            self.generator = VLLMGenerator(model_name=model_name, logger=logger)
+
         self.rel_scores = None
         self.results = None
         self.score = None
@@ -66,7 +71,7 @@ class LLMRelevanceEvaluator:
         rel_scores = []
 
         for qid, prompts in prompts_by_qids.items():
-            scores = self.generator.generate(prompts)
+            scores = self.generator.generate(prompts, temperature=0)
             scores_parsed = []
 
             for score in scores:
@@ -82,9 +87,6 @@ class LLMRelevanceEvaluator:
                 'rel_scores': scores_parsed
             }
             rel_scores.append(rel_score)
-
-            if qid == 5: # for testing, remove this line for full evaluation
-                break  
         
         self.rel_scores = rel_scores
         metrics = evaluate_rels_at_k(rel_scores, ks=self.ks)
@@ -92,9 +94,13 @@ class LLMRelevanceEvaluator:
         return metrics
 
 class LLMGenerationEvaluator:
-    def __init__(self, model_name: str = "gpt-4o-mini"):
+    def __init__(self, model_name: str = "qwen", logger = None):
+        self.logger = logger
+        if model_name.startswith("gpt"):
+            self.generator = OpenAIGenerator(model_name=model_name, logger=logger)
+        else:
+            self.generator = VLLMGenerator(model_name=model_name, logger=logger)
         self.newsqa = load_news_qa_dataset()
-        self.generator = OpenAIGenerator(model_name=model_name)
         self.generation_scores = None
         self.results = None
         self.score = None
@@ -119,11 +125,10 @@ class LLMGenerationEvaluator:
         generation_scores = []
 
         for qid, prompt in enumerate(prompts):
-            score = self.generator.generate([prompt])[0]
+            score = self.generator.generate([prompt], temperature=0)[0]
             try:
                 score = float(score.strip())
             except:
-                print(score)
                 score = 0.0  # default to 0.0 if parsing fails
             
             generation_score = {

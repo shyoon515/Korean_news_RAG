@@ -7,6 +7,7 @@ sys.path.append(str(Path(__file__).resolve().parent.parent))
 from pipeline.retriever.embed import create_new_collection
 from pipeline.qdrant.client import QdrantService
 from pipeline.retriever.embed import load_encoding_model
+from pipeline.common import setup_logger
 
 def main():
     parser = argparse.ArgumentParser(description="Create Qdrant collection and upsert data.")
@@ -20,11 +21,14 @@ def main():
         model_name = "dragonkue/bge-m3-ko"
     elif args.model_name == "kr-sbert":
         model_name = "snunlp/KR-SBERT-V40K-klueNLI-augSTS"
+    elif args.model_name == "e5":
+        model_name = "intfloat/multilingual-e5-large-instruct"
     else:
         raise ValueError(f"Unsupported model name: {args.model_name}")
     
+    logger = setup_logger("create_collection")
     collection_name = args.collection_name + "_" + str(args.chunk_size) + "_" + str(args.chunk_overlap)
-    qdrant_service = QdrantService()
+    qdrant_service = QdrantService(logger=logger)
 
     # Load embedding model
     embed_model = load_encoding_model(model_name)

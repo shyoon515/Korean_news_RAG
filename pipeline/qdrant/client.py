@@ -16,8 +16,8 @@ class QdrantService:
         if not resolved_api_key:
             raise ValueError("Qdrant API key is required")
         self.client = QdrantClient(url=resolved_url, api_key=resolved_api_key, **kwargs)
+        self.logger = logger
         if logger:
-            self.logger = logger
             self.logger.info(f"[QdrantService] Connected to Qdrant at {resolved_url}")
 
     def collection_exists(self, collection_name: str) -> bool:

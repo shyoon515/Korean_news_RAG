@@ -4,9 +4,12 @@ from pathlib import Path
 sys.path.append(str(Path(__file__).resolve().parent.parent))
 from pipeline.eval.evaluator import LLMRelevanceEvaluator, AtkEvaluator
 import json
+from pipeline.common import setup_logger
+
+logger = setup_logger(name="eval_retrieval")
 
 atk_evaluator = AtkEvaluator()
-llm_relevance_evaluator = LLMRelevanceEvaluator(model_name="gpt-5-nano")
+llm_relevance_evaluator = LLMRelevanceEvaluator(model_name="qwen", logger=logger)
 
 folder_path = "/workspace/final_project/outputs/releval"
 all_file_names = []
