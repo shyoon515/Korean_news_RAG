@@ -71,3 +71,54 @@ class PromptGenerator:
 
         prompts.append(PROMPT)
         return prompts
+    
+    def generate_relevance_judge(
+            doc: str, 
+            question: str
+        ) -> str:
+        """
+        Generate a prompt for judging the relevance of a document to a question-answer pair.
+        Args:
+            doc (str): The document text.
+            question (str): The question text.
+            answer (str): The answer text.
+        Returns:
+            str: The generated prompt.
+        """
+        PROMPT = f"""
+        다음 기사 내용 안에 아래 질문에 대한 답이 들어있는지 답해줘.
+        답이 들어있으면 1, 들어있지 않으면 0으로 답해줘.
+        반드시 " 없이 1이나 0으로만 답변해줘.
+
+        기사 내용: {doc}
+        질문: {question}
+        출력: 
+        """
+        return PROMPT
+    
+    def generate_generation_judge(
+            question: str, 
+            answer: str,
+            prediction: str
+        ) -> str:
+        """
+        Generate a prompt for judging whether a document contains the answer to a question.
+        Args:
+            question (str): The question text.
+            answer (str): The answer text.
+            prediction (str): The generated answer text.
+        Returns:
+            str: The generated prompt.
+        """
+        PROMPT = f"""
+        다음 질문에 대한 답변이 올바른지 판단해줘.
+        생성된 답변이 올바르면 1, 올바르지 않으면 0으로 답해줘.
+        반드시 " 없이 1이나 0으로만 답변해줘.
+        
+        질문: {question}
+        올바른 답변: {answer}
+        생성된 답변: {prediction}
+        
+        출력: 
+        """
+        return PROMPT

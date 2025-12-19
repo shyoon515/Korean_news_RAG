@@ -1,5 +1,6 @@
 import re
 import string
+import json
 
 def normalize_answer(s):
     """Lower text and remove punctuation, articles and extra whitespace."""
@@ -26,7 +27,7 @@ def answer_extractor(text: str) -> str:
         text = str(text)
 
     # JSON-like {"Answer": "..."} patterns
-    answer_matches = re.findall(r'\{[^{}]*"Answer"\s*:\s*"([^"]+)"[^{}]*\}', text)
+    answer_matches = re.findall(r'\{[^{}]*"answer"\s*:\s*"([^"]+)"[^{}]*\}', text)
     if answer_matches:
         return answer_matches[-1]
 
@@ -43,3 +44,13 @@ def answer_extractor(text: str) -> str:
         return match.group(1).strip()
 
     return text.strip() # if no match, return the original text
+
+def load_jsonl(path):
+    records = []
+    with open(path, "r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            records.append(json.loads(line))
+    return records

@@ -4,6 +4,7 @@ from keys import OPENAI_API_KEY
 from vllm import LLM, SamplingParams
 from transformers import AutoTokenizer
 
+import time
 from tqdm import tqdm
 
 class OpenAIGenerator:
@@ -19,11 +20,26 @@ class OpenAIGenerator:
             prompts = [prompts]
         responses = []
         for i, prompt in enumerate(prompts):
-            response = self.client.responses.create(
-                            model=self.model_name,
-                            input=prompt
-            )
-            responses.append(response.output_text)
+            try_cnt = 0
+            while(1):
+                try:
+                    response = self.client.responses.create(
+                                    model=self.model_name,
+                                    input=prompt
+                    )
+                    responses.append(response.output_text)
+                    break
+                except Exception as e:
+                    if self.logger:
+                        self.logger.error(f"[OpenAIGenerator] Error on prompt {i+1}/{len(prompts)}: {e}, retrying in 30 seconds...")
+                    try_cnt += 1
+                    if try_cnt >= 120:
+                        if self.logger:
+                            self.logger.error(f"[OpenAIGenerator] Failed to get response after {try_cnt} attempts, skipping this prompt.")
+                        responses.append("")  # Append empty response on failure
+                        break
+                    time.sleep(30)
+                    continue
 
             if self.logger:
                 self.logger.info(f"[OpenAIGenerator] ({i+1}/{len(prompts)}) generation done\n- Prompt:\n{prompt}\n- Response:\n{response.output_text}")
