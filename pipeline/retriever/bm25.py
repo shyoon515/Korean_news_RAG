@@ -26,7 +26,6 @@ class KoreanBM25Indexer(Indexer):
         """
         self.top_k = top_k
 
-        # 🔹 chunk id와 텍스트 분리
         self.doc_ids = [item["id"] for item in corpus]
         self.texts = [item["chunked_text"] for item in corpus]
 

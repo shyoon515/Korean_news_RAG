@@ -4,17 +4,17 @@
 
 ## LG AI (EXAONE 1.2B)
 ```bash
-vllm serve LGAI-EXAONE/EXAONE-4.0-1.2B --port 8000 --gpu-memory-utilization 0.8
+vllm serve LGAI-EXAONE/EXAONE-4.0-1.2B --port 8000 --gpu-memory-utilization 0.7
 ```
 
 ## KT (Midm 2.0 Mini Instruct)
 ```bash
-vllm serve K-intelligence/Midm-2.0-Mini-Instruct --port 8000 --gpu-memory-utilization 0.8
+vllm serve K-intelligence/Midm-2.0-Mini-Instruct --port 8000 --gpu-memory-utilization 0.7
 ```
 
 ## NAVER (HyperCLOVAX SEED Text Instruct 1.5B)
 ```bash
-vllm serve naver-hyperclovax/HyperCLOVAX-SEED-Text-Instruct-1.5B --port 8000 --gpu-memory-utilization 0.8
+vllm serve naver-hyperclovax/HyperCLOVAX-SEED-Text-Instruct-1.5B --port 8000 --gpu-memory-utilization 0.7
 ```
 
 ## Qwen2.5-7B

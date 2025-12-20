@@ -12,8 +12,6 @@ from pipeline.dataset.newsqa import load_news_qa_dataset
 
 def main():
     parser = argparse.ArgumentParser(description="Generate QA pairs from NewsQA dataset.")
-    parser.add_argument("--retrieval-type", type=str, help="Retrieval type. Supported inputs: 'dense', 'sparse', 'hybrid'.")
-    parser.add_argument("--hybrid-alpha", type=float, help="Alpha value for hybrid retrieval (0~1). Only used if retrieval-type is 'hybrid'.")
     parser.add_argument("--encoder", type=str, default="bge", help="Encoder model name. Should be a sentence-transformers model. Supported inputs: 'bge', 'sbert', 'e5'.")
     parser.add_argument("--generator-type", type=str, default="vllm", help="Generator type. Supported inputs: 'vllm', 'openai'.")
     parser.add_argument("--generator", type=str, default="midm", help="Generator model name. Supported inputs for vllm: 'exaone', 'midm', 'hyperclovax'. For openai, use model names like 'gpt-4o-mini'.")
@@ -28,13 +26,12 @@ def main():
     if args.logger:
         logger = setup_logger("NewsQAGeneration")
 
+    collection_name = f"{args.encoder}_{args.chunk_size}_{args.overlap_size}"
+
     rag = RAGChain(
-        retrieval_type=args.retrieval_type,
-        hybrid_alpha=args.hybrid_alpha,
         encoder_name=args.encoder,
-        chunk_size=args.chunk_size,
-        overlap_size=args.overlap_size,
         top_k=args.top_k,
+        collection_name=collection_name,
         generator_type=args.generator_type,
         generator_name=args.generator,
         with_retrieval_results=True,
@@ -51,7 +48,7 @@ def main():
     # Save generated QA pairs
     output_path = Path(args.output_path)
     output_path.mkdir(parents=True, exist_ok=True)
-    output_file = output_path / f"TYPE{args.retrieval_type}_ALPHA{int(args.hybrid_alpha*100)}_GEN{args.generator}_ENC{args.encoder}_{args.chunk_size}_{args.overlap_size}_top{args.top_k}_generated_newsqa_qa_pairs_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+    output_file = output_path / f"GEN{args.generator}_ENC{args.encoder}_{args.chunk_size}_{args.overlap_size}_top{args.top_k}_generated_newsqa_qa_pairs_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
 
     with open(output_file, 'w', encoding='utf-8') as f:
         for item, answer in zip(newsqa_data, answers):
