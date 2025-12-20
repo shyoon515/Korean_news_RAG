@@ -18,7 +18,7 @@ def main():
     parser.add_argument("--generator-type", type=str, default="vllm", help="Generator type. Supported inputs: 'vllm', 'openai'.")
     parser.add_argument("--generator", type=str, default="midm", help="Generator model name. Supported inputs for vllm: 'exaone', 'midm', 'hyperclovax'. For openai, use model names like 'gpt-4o-mini'.")
     parser.add_argument("--seq-type", type=str, help="Determines the allocation of documents and query in the generation prompt: 'dq', 'qd', 'qdq'.")
-    parser.add_argument("--doc-rearrange", type=bool, help="Whether to rearrange documents in a 1 3...n 2 order before generation.")
+    parser.add_argument("--doc-rearrange", type=int, help="Whether to rearrange documents in a 1 3...n 2 order before generation. Use 1 for True, 0 for False.")
     parser.add_argument("--top-k", type=int, default=5, help="Number of top documents to retrieve.")
     parser.add_argument("--chunk-size", type=int, default=1000, help="Chunk size for splitting context.")
     parser.add_argument("--overlap-size", type=int, default=200, help="Overlap size between chunks.")

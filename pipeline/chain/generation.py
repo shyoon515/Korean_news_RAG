@@ -16,7 +16,7 @@ class RAGChain:
     def __init__(
         self,
         seq_type : str, # 'dq', 'qd', 'qdq'
-        doc_rearrange : bool, # True, False
+        doc_rearrange : int, # 1, 0
         retrieval_type : str = 'hybrid', # 'sparse', 'dense', 'hybrid'
         hybrid_alpha : float = 0.6,
         encoder_name : str = 'bge', # 'bge', 'sbert', 'e5'
@@ -56,8 +56,9 @@ class RAGChain:
             self.logger.info(f"-> generator_name: {self.generator_name}")
             self.logger.info(f"-> generator_type: {self.generator_type}")
             self.logger.info(f"-> seq_type: {self.seq_type}")
+            self.logger.info(f"-> doc_rearrange: {self.doc_rearrange}")
             self.logger.info(f"-> vllm_api_base: {self.vllm_api_base}")
-            self.logger.info(f"-> with_retrieval_results: {self.with_retrieval_results}")
+            self.logger.info(f"-> with_retrieval_results: {self.with_retrieval_results}\n")
 
         if self.retrieval_type in ['sparse', 'hybrid']:
             self.sparse_retriever = self._load_bm25_retriever()
@@ -88,10 +89,14 @@ class RAGChain:
         final_answers = []
         prompts = []
         for q_idx, docs in enumerate(all_retrieved_docs):
-            if self.doc_rearrange:
+            if self.doc_rearrange == 1:
+                if self.logger:
+                    self.logger.info(f"[RAGChain] (ask) Rearranging documents for question index {q_idx} before generation.")
                 docs_rearranged = [docs[0]] + docs[2:] + [docs[1]]
                 doc_texts = [doc['chunked_text'] for doc in docs_rearranged]
             else:
+                if self.logger:
+                    self.logger.info(f"[RAGChain] (ask) Using original document order for question index {q_idx} for generation.")
                 doc_texts = [doc['chunked_text'] for doc in docs]
             prompt = PromptGenerator.generate_answer_with_docs(docs=doc_texts, question=question[q_idx], seq_type=self.seq_type)
             prompts.append(prompt[0])
