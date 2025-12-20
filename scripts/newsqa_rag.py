@@ -12,17 +12,18 @@ from pipeline.dataset.newsqa import load_news_qa_dataset
 
 def main():
     parser = argparse.ArgumentParser(description="Generate QA pairs from NewsQA dataset.")
-    parser.add_argument("--retrieval-type", type=str, help="Retrieval type. Supported inputs: 'dense', 'sparse', 'hybrid'.")
-    parser.add_argument("--hybrid-alpha", type=float, help="Alpha value for hybrid retrieval (0~1). Only used if retrieval-type is 'hybrid'.")
+    parser.add_argument("--retrieval-type", type=str, default="hybrid", help="Retrieval type. Supported inputs: 'dense', 'sparse', 'hybrid'.")
+    parser.add_argument("--hybrid-alpha", type=float, default=0.6, help="Alpha value for hybrid retrieval (0~1). Only used if retrieval-type is 'hybrid'.")
     parser.add_argument("--encoder", type=str, default="bge", help="Encoder model name. Should be a sentence-transformers model. Supported inputs: 'bge', 'sbert', 'e5'.")
     parser.add_argument("--generator-type", type=str, default="vllm", help="Generator type. Supported inputs: 'vllm', 'openai'.")
     parser.add_argument("--generator", type=str, default="midm", help="Generator model name. Supported inputs for vllm: 'exaone', 'midm', 'hyperclovax'. For openai, use model names like 'gpt-4o-mini'.")
+    parser.add_argument("--seq-type", type=str, help="Determines the allocation of documents and query in the generation prompt: 'dq', 'qd', 'qdq'.")
+    parser.add_argument("--doc-rearrange", type=bool, help="Whether to rearrange documents in a 1 3...n 2 order before generation.")
     parser.add_argument("--top-k", type=int, default=5, help="Number of top documents to retrieve.")
     parser.add_argument("--chunk-size", type=int, default=1000, help="Chunk size for splitting context.")
     parser.add_argument("--overlap-size", type=int, default=200, help="Overlap size between chunks.")
     parser.add_argument("--output-path", type=str, default=str(Path(__file__).resolve().parent.parent / "outputs"), help="Folder path to save the generated QA pairs.")
     parser.add_argument("--logger", type=bool, default=True, help="Logger usage flag.")
-    parser
     args = parser.parse_args()
 
     if args.logger:
@@ -37,6 +38,8 @@ def main():
         top_k=args.top_k,
         generator_type=args.generator_type,
         generator_name=args.generator,
+        seq_type = args.seq_type,
+        doc_rearrange = args.doc_rearrange,
         with_retrieval_results=True,
         logger=logger if args.logger else None,
     )
@@ -51,7 +54,7 @@ def main():
     # Save generated QA pairs
     output_path = Path(args.output_path)
     output_path.mkdir(parents=True, exist_ok=True)
-    output_file = output_path / f"TYPE{args.retrieval_type}_ALPHA{int(args.hybrid_alpha*100)}_GEN{args.generator}_ENC{args.encoder}_{args.chunk_size}_{args.overlap_size}_top{args.top_k}_generated_newsqa_qa_pairs_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+    output_file = output_path / f"REARR{int(args.doc_rearrange)}_SEQ{args.seq_type}_TYPE{args.retrieval_type}_ALPHA{int(args.hybrid_alpha*100)}_GEN{args.generator}_ENC{args.encoder}_{args.chunk_size}_{args.overlap_size}_top{args.top_k}_generated_newsqa_qa_pairs_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
 
     with open(output_file, 'w', encoding='utf-8') as f:
         for item, answer in zip(newsqa_data, answers):

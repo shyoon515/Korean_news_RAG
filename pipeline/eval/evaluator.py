@@ -63,7 +63,7 @@ class LLMRelevanceEvaluator:
             prompts = []
 
             for ret_result in record_dict['retrieval_results']:
-                prompt = PromptGenerator.generate_relevance_judge(doc=record_dict['question'], question=ret_result['chunked_text'])
+                prompt = PromptGenerator.generate_relevance_judge(doc=ret_result['chunked_text'], question=record_dict['question'])
                 prompts.append(prompt)
 
             prompts_by_qids[record_dict['qid']] = prompts

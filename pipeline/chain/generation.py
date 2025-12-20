@@ -15,8 +15,10 @@ class RAGChain:
     """
     def __init__(
         self,
-        retrieval_type : str, # 'sparse', 'dense', 'hybrid'
-        hybrid_alpha : float = 0.5,
+        seq_type : str, # 'dq', 'qd', 'qdq'
+        doc_rearrange : bool, # True, False
+        retrieval_type : str = 'hybrid', # 'sparse', 'dense', 'hybrid'
+        hybrid_alpha : float = 0.6,
         encoder_name : str = 'bge', # 'bge', 'sbert', 'e5'
         chunk_size : int = 1000,
         overlap_size : int = 200,
@@ -36,9 +38,26 @@ class RAGChain:
         self.collection_name = encoder_name + f"_{chunk_size}_{overlap_size}"
         self.generator_name = generator_name
         self.generator_type = generator_type
+        self.seq_type = seq_type
+        self.doc_rearrange = doc_rearrange
         self.vllm_api_base = vllm_api_base
         self.with_retrieval_results = with_retrieval_results
         self.logger = logger
+
+        if self.logger:
+            self.logger.info(f"[RAGChain init] Logger option enabled. Initializing RAGChain with Following configs.")
+            self.logger.info(f"-> retrieval_type: {self.retrieval_type}")
+            self.logger.info(f"-> hybrid_alpha: {self.hybrid_alpha}")
+            self.logger.info(f"-> encoder_name: {self.encoder_name}")
+            self.logger.info(f"-> chunk_size: {self.chunk_size}")
+            self.logger.info(f"-> overlap_size: {self.overlap_size}")
+            self.logger.info(f"-> top_k: {self.top_k}")
+            self.logger.info(f"-> collection_name: {self.collection_name}")
+            self.logger.info(f"-> generator_name: {self.generator_name}")
+            self.logger.info(f"-> generator_type: {self.generator_type}")
+            self.logger.info(f"-> seq_type: {self.seq_type}")
+            self.logger.info(f"-> vllm_api_base: {self.vllm_api_base}")
+            self.logger.info(f"-> with_retrieval_results: {self.with_retrieval_results}")
 
         if self.retrieval_type in ['sparse', 'hybrid']:
             self.sparse_retriever = self._load_bm25_retriever()
@@ -69,8 +88,12 @@ class RAGChain:
         final_answers = []
         prompts = []
         for q_idx, docs in enumerate(all_retrieved_docs):
-            doc_texts = [doc['chunked_text'] for doc in docs]
-            prompt = PromptGenerator.generate_answer_with_docs(docs=doc_texts, question=question[q_idx])
+            if self.doc_rearrange:
+                docs_rearranged = [docs[0]] + docs[2:] + [docs[1]]
+                doc_texts = [doc['chunked_text'] for doc in docs_rearranged]
+            else:
+                doc_texts = [doc['chunked_text'] for doc in docs]
+            prompt = PromptGenerator.generate_answer_with_docs(docs=doc_texts, question=question[q_idx], seq_type=self.seq_type)
             prompts.append(prompt[0])
         final_answers = self.generator.generate(prompts)
         if self.logger:
