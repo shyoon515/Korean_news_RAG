@@ -15,14 +15,14 @@ class RAGChain:
     """
     def __init__(
         self,
-        seq_type : str, # 'dq', 'qd', 'qdq'
-        doc_rearrange : int, # 1, 0
         retrieval_type : str = 'hybrid', # 'sparse', 'dense', 'hybrid'
         hybrid_alpha : float = 0.6,
         encoder_name : str = 'bge', # 'bge', 'sbert', 'e5'
         chunk_size : int = 1000,
         overlap_size : int = 200,
         generator_name : str = 'midm', # exaone, midm, hyperclovax
+        seq_type : str = 'dq', # 'dq', 'qd'
+        doc_rearrange : int = 1, # 1, 0
         top_k : int = 5,
         generator_type : str = "vllm",
         vllm_api_base : str = "http://localhost:8000/v1",

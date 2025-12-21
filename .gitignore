@@ -3,3 +3,4 @@
 keys.py
 *.log
 /outputs
+/.gradio

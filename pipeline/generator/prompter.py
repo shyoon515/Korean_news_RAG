@@ -47,7 +47,7 @@ class PromptGenerator:
     def generate_answer_with_docs(
             docs: List[str], 
             question: str,
-            seq_type: str, #'dq', 'qd', 'qdq'
+            seq_type: str, #'dq', 'qd'
         ) -> List[str]:
         """
         Generate prompts for answering a question based on provided documents.
@@ -66,13 +66,13 @@ class PromptGenerator:
         {{"answer": "답변 내용"}}
         반드시 기사 내용에만 근거해서 답변을 만들어야 해.
         """
-        if seq_type == 'qd' or seq_type == 'qdq':
+        if seq_type == 'qd':
             PROMPT += f"\n질문: {question}\n"
 
         for i, doc in enumerate(docs):
             PROMPT += f"\n기사 {i+1} 내용: {doc}\n"
         
-        if seq_type == 'dq' or seq_type == 'qdq':
+        if seq_type == 'dq':
             PROMPT += f"\n질문: {question}\n"
 
         PROMPT += "답변: "
